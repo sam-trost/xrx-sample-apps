@@ -10,6 +10,7 @@ from agent_framework import initialize_llm_client, observability_decorator
 
 client = initialize_llm_client()
 MODEL = os.environ['LLM_MODEL_ID']
+INCLUDE_USER = os.environ['LLM_INCLUDE_USER']
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s:%(message)s')
 
@@ -36,7 +37,9 @@ async def run_agent(input_dict: dict):
         messages = input_dict['messages']
         session = input_dict['session']
 
-        response = single_turn_agent(messages)
+
+        user = session['guid'] if INCLUDE_USER else None
+        response = single_turn_agent(messages, user)
         response['session'] = session
         logging.info(f"Agent Output: {json.dumps(response)}")
         yield json.dumps(response)
@@ -64,7 +67,7 @@ def extract_function_metadata(func: Callable) -> dict:
         }
     }
 
-def single_turn_agent(messages: List[dict]) -> str:
+def single_turn_agent(messages: List[dict], session_guid: str) -> str:
 
     system_prompt = {
         "role": "user",
@@ -99,7 +102,8 @@ def single_turn_agent(messages: List[dict]) -> str:
         messages=messages,
         tools=tools,
         tool_choice="auto",
-        max_tokens=4096
+        max_tokens=4096,
+        user=session_guid
     )
     response_message = response.choices[0].message
     if response_message.content:
